@@ -1,3 +1,7 @@
+# Credentials
+*.pem
+*.json
+
 # Data Files
 *.zip
 *.tif
