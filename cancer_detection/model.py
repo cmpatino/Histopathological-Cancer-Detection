@@ -1,5 +1,6 @@
 import pandas as pd
 from glob import glob
+import sys
 from sklearn.model_selection import train_test_split
 
 from keras.layers import GlobalAveragePooling2D, Flatten
@@ -152,8 +153,7 @@ def train_model(submission_filename):
 
     submission.to_csv('submission_files/' + submission_filename)
 
-    return submission
-
 
 if __name__ == '__main__':
-    train_model('submission_1.csv')
+    submission_name = sys.argv[1]
+    train_model(submission_name)
