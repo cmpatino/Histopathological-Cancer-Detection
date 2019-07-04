@@ -11,14 +11,13 @@ from keras.applications.nasnet import NASNetMobile
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
 from keras import backend as K
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import tensorflow as tf
 
 from data_utils import DataGenerator
 
 DATA_PATH = '../input/'
 TRAIN_DIR = DATA_PATH + 'train/'
-TEST_DIR = DATA_PATH + 'test/'
+TEST_DIR = DATA_PATH + 'test/test'
 
 CROP_SIZE = 96
 ORIGINAL_SIZE = 96
@@ -130,7 +129,7 @@ def train_model(submission_filename):
     """
 
     labeled_files = glob('../input/train/*.tif')
-    test_files = glob('../input/test/*.tif')
+    test_files = glob('../input/test/test/*.tif')
 
     partition = {}
     train, val = train_test_split(labeled_files, test_size=0.1,
@@ -142,6 +141,7 @@ def train_model(submission_filename):
 
     df_train = pd.read_csv("../input/train_labels.csv")
     labels = map_id_label(df_train)
+    test_labels = {i: 0 for i in partition['test']}
 
     print('Creating Generators')
     train_gen = DataGenerator(partition['train'], labels, TRAIN_DIR,
@@ -150,12 +150,9 @@ def train_model(submission_filename):
     val_gen = DataGenerator(partition['val'], labels, TRAIN_DIR,
                             dim=(CROP_SIZE,  CROP_SIZE),
                             n_channels=3, n_classes=1, shuffle=True)
-    datagen = ImageDataGenerator(rescale=1.0/255)
-    test_gen = datagen.flow_from_directory(TEST_DIR,
-                                           target_size=(CROP_SIZE, CROP_SIZE),
-                                           batch_size=512,
-                                           class_mode='categorical',
-                                           shuffle=False)
+    test_gen = DataGenerator(partition['test'], test_labels, TEST_DIR,
+                             dim=(CROP_SIZE,  CROP_SIZE), batch_size=2,
+                             n_channels=3, n_classes=1, shuffle=False)
 
     model = get_model_classif_nasnet()
     model_filepath = 'model.h5'
