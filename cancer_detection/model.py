@@ -11,6 +11,7 @@ from keras.applications.nasnet import NASNetMobile
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
 from keras import backend as K
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import tensorflow as tf
 
 from data_utils import DataGenerator
@@ -108,7 +109,7 @@ def generate_prediction(model, test_gen, test_files):
 
     predictions = model.predict_generator(test_gen, verbose=1)
     df_preds = pd.DataFrame(predictions,
-                            columns=['no_tumor_tissue', 'has_tumor_tissue'])
+                            columns=['has_tumor_tissue'])
 
     df_preds['file_names'] = test_files
     df_preds['id'] = df_preds['file_names'].str.split('/')\
@@ -141,7 +142,6 @@ def train_model(submission_filename):
 
     df_train = pd.read_csv("../input/train_labels.csv")
     labels = map_id_label(df_train)
-    test_labels = {i: 0 for i in partition['test']}
 
     print('Creating Generators')
     train_gen = DataGenerator(partition['train'], labels, TRAIN_DIR,
@@ -150,9 +150,12 @@ def train_model(submission_filename):
     val_gen = DataGenerator(partition['val'], labels, TRAIN_DIR,
                             dim=(CROP_SIZE,  CROP_SIZE),
                             n_channels=3, n_classes=1, shuffle=True)
-    test_gen = DataGenerator(partition['test'], test_labels, TEST_DIR,
-                             dim=(CROP_SIZE,  CROP_SIZE),
-                             n_channels=3, n_classes=1, shuffle=True)
+    datagen = ImageDataGenerator(rescale=1.0/255)
+    test_gen = datagen.flow_from_directory(TEST_DIR,
+                                           target_size=(CROP_SIZE, CROP_SIZE),
+                                           batch_size=512,
+                                           class_mode='categorical',
+                                           shuffle=False)
 
     model = get_model_classif_nasnet()
     model_filepath = 'model.h5'
@@ -170,11 +173,6 @@ def train_model(submission_filename):
                                   )
 
     model.load_weights('model.h5')
-
-    val_loss, val_acc = model.evaluate_generator(val_gen)
-
-    print('val_loss:', val_loss)
-    print('val_acc:', val_acc)
 
     print('Creating Submission Predictions')
     submission = generate_prediction(model, test_gen, test_files)
