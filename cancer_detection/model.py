@@ -56,13 +56,26 @@ def map_id_label(df_train):
 
 
 def extract_id(img_path):
+    """Extract image ID from filename
 
-    id = img_path.split('/')[-1].split('.')[0]
+    Arguments:
+        img_path {str} -- path to image file
 
-    return id
+    Returns:
+        str -- image id
+    """
+
+    img_id = img_path.split('/')[-1].split('.')[0]
+
+    return img_id
 
 
 def get_model_classif_nasnet():
+    """Creates model architecture
+
+    Returns:
+        keras.model.Model -- compiled model
+    """
     inputs = Input((CROP_SIZE, CROP_SIZE, 3))
     base_model = NASNetMobile(include_top=False,
                               input_tensor=inputs, weights='imagenet')
@@ -82,6 +95,16 @@ def get_model_classif_nasnet():
 
 
 def generate_prediction(model, test_gen, test_files):
+    """Generates predictions for submissions
+
+    Arguments:
+        model {keras.models.Model} -- trained model
+        test_gen {DataGenerator} -- data generator with test set
+        test_files {list} -- image filenames for test set
+
+    Returns:
+        pd.DataFrame -- DataFrame with image ID and predicted labels
+    """
 
     predictions = model.predict_generator(test_gen, verbose=1)
     df_preds = pd.DataFrame(predictions,
@@ -99,6 +122,11 @@ def generate_prediction(model, test_gen, test_files):
 
 
 def train_model(submission_filename):
+    """Entire pipeline to train and generate predictions
+
+    Arguments:
+        submission_filename {str} -- filename and path for submission file
+    """
 
     labeled_files = glob('../input/train/*.tif')
     test_files = glob('../input/test/*.tif')
