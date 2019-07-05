@@ -17,7 +17,7 @@ from data_utils import DataGenerator
 
 DATA_PATH = '../input/'
 TRAIN_DIR = DATA_PATH + 'train/'
-TEST_DIR = DATA_PATH + 'test/test'
+TEST_DIR = DATA_PATH + 'test/test/'
 
 CROP_SIZE = 96
 ORIGINAL_SIZE = 96
@@ -174,7 +174,7 @@ def train_model(submission_filename):
     print('Creating Submission Predictions')
     submission = generate_prediction(model, test_gen, test_files)
 
-    submission.to_csv('submission_files/' + submission_filename)
+    submission.to_csv('../submission_files/' + submission_filename)
 
 
 if __name__ == '__main__':
