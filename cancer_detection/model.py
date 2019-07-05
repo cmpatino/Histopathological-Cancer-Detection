@@ -1,5 +1,6 @@
 import pandas as pd
 from glob import glob
+import pickle
 from sklearn.model_selection import train_test_split
 
 from keras.layers import GlobalAveragePooling2D, Flatten
@@ -18,9 +19,10 @@ DATA_PATH = '../input/'
 TRAIN_DIR = DATA_PATH + 'train/'
 TEST_DIR = DATA_PATH + 'test/test/'
 MODEL_FILEPATH = 'model.h5'
+HISTORY_FILEPATH = 'history.pkl'
+SUBMISSIONS_DIR = '../submission_files/'
 
-CROP_SIZE = 96
-ORIGINAL_SIZE = 96
+IMAGE_SIZE = 96
 
 
 def auc(y_true, y_pred):
@@ -76,7 +78,7 @@ def get_model_classif_nasnet():
     Returns:
         keras.model.Model -- compiled model
     """
-    inputs = Input((CROP_SIZE, CROP_SIZE, 3))
+    inputs = Input((IMAGE_SIZE, IMAGE_SIZE, 3))
     base_model = NASNetMobile(include_top=False,
                               input_tensor=inputs, weights='imagenet')
     x = base_model(inputs)
@@ -122,13 +124,13 @@ def generate_prediction(model, test_gen, test_files):
 
 
 def train_model():
-    """Entire pipeline to train model
+    """Train model and save weights in file
 
-    Arguments:
-        submission_filename {str} -- filename and path for submission file
+    Returns:
+        keras.model.Model -- model architecture object
     """
 
-    labeled_files = glob('../input/train/*.tif')
+    labeled_files = glob(TRAIN_DIR + '*.tif')
 
     partition = {}
     train, val = train_test_split(labeled_files, test_size=0.1,
@@ -137,15 +139,15 @@ def train_model():
     partition['train'] = list(map(extract_id, train))
     partition['val'] = list(map(extract_id, val))
 
-    df_train = pd.read_csv("../input/train_labels.csv")
+    df_train = pd.read_csv(DATA_PATH + "train_labels.csv")
     labels = map_id_label(df_train)
 
     print('Creating Generators')
     train_gen = DataGenerator(partition['train'], labels, TRAIN_DIR,
-                              dim=(CROP_SIZE, CROP_SIZE),
+                              dim=(IMAGE_SIZE, IMAGE_SIZE),
                               n_channels=3, n_classes=1, shuffle=True)
     val_gen = DataGenerator(partition['val'], labels, TRAIN_DIR,
-                            dim=(CROP_SIZE,  CROP_SIZE),
+                            dim=(IMAGE_SIZE,  IMAGE_SIZE),
                             n_channels=3, n_classes=1, shuffle=True)
 
     model = get_model_classif_nasnet()
@@ -162,29 +164,41 @@ def train_model():
                                   use_multiprocessing=True,
                                   workers=2
                                   )
+    with open(HISTORY_FILEPATH, 'wb') as hist_file:
+        pickle.dump(history.history, hist_file)
+
     return model
 
 
 def predict(submission_filename, model=None):
+    """Predict and generate submission file using a trained model
 
-    test_files = glob('../input/test/test/*.tif')
+    Arguments:
+        submission_filename {str} -- name for the Kaggle submission file
+
+    Keyword Arguments:
+        model {keras.models.Model} -- model object to use in predictions
+                                      (default: {None})
+    """
+
+    test_files = glob(TEST_DIR + '*.tif')
     test_ids = list(map(extract_id, test_files))
     test_labels = {i: 0 for i in test_ids}
 
     test_gen = DataGenerator(test_ids, test_labels, TEST_DIR,
-                             dim=(CROP_SIZE,  CROP_SIZE), batch_size=2,
+                             dim=(IMAGE_SIZE,  IMAGE_SIZE), batch_size=2,
                              n_channels=3, n_classes=1, shuffle=False)
 
     if model:
         model.load_weights(MODEL_FILEPATH)
     else:
         model = get_model_classif_nasnet()
-        model.load_weights(MODEL_FILEPATH) 
+        model.load_weights(MODEL_FILEPATH)
 
     print('Creating Submission Predictions')
     submission = generate_prediction(model, test_gen, test_files)
 
-    submission.to_csv('../submission_files/' + submission_filename)
+    submission.to_csv(SUBMISSIONS_DIR + submission_filename)
 
 
 if __name__ == '__main__':
