@@ -1,6 +1,5 @@
 import pandas as pd
 from glob import glob
-import sys
 from sklearn.model_selection import train_test_split
 
 from keras.layers import GlobalAveragePooling2D, Flatten
@@ -18,6 +17,7 @@ from data_utils import DataGenerator
 DATA_PATH = '../input/'
 TRAIN_DIR = DATA_PATH + 'train/'
 TEST_DIR = DATA_PATH + 'test/test/'
+MODEL_FILEPATH = 'model.h5'
 
 CROP_SIZE = 96
 ORIGINAL_SIZE = 96
@@ -121,15 +121,14 @@ def generate_prediction(model, test_gen, test_files):
     return submission_df
 
 
-def train_model(submission_filename):
-    """Entire pipeline to train and generate predictions
+def train_model():
+    """Entire pipeline to train model
 
     Arguments:
         submission_filename {str} -- filename and path for submission file
     """
 
     labeled_files = glob('../input/train/*.tif')
-    test_files = glob('../input/test/test/*.tif')
 
     partition = {}
     train, val = train_test_split(labeled_files, test_size=0.1,
@@ -137,11 +136,9 @@ def train_model(submission_filename):
 
     partition['train'] = list(map(extract_id, train))
     partition['val'] = list(map(extract_id, val))
-    partition['test'] = list(map(extract_id, test_files))
 
     df_train = pd.read_csv("../input/train_labels.csv")
     labels = map_id_label(df_train)
-    test_labels = {i: 0 for i in partition['test']}
 
     print('Creating Generators')
     train_gen = DataGenerator(partition['train'], labels, TRAIN_DIR,
@@ -150,12 +147,9 @@ def train_model(submission_filename):
     val_gen = DataGenerator(partition['val'], labels, TRAIN_DIR,
                             dim=(CROP_SIZE,  CROP_SIZE),
                             n_channels=3, n_classes=1, shuffle=True)
-    test_gen = DataGenerator(partition['test'], test_labels, TEST_DIR,
-                             dim=(CROP_SIZE,  CROP_SIZE), batch_size=2,
-                             n_channels=3, n_classes=1, shuffle=False)
 
     model = get_model_classif_nasnet()
-    model_filepath = 'model.h5'
+    model_filepath = MODEL_FILEPATH
     checkpoint = ModelCheckpoint(model_filepath, monitor='val_acc',
                                  save_best_only=True, mode='max')
     reduce_lr = ReduceLROnPlateau(monitor='val_acc', factor=0.5, patience=2,
@@ -168,8 +162,24 @@ def train_model(submission_filename):
                                   use_multiprocessing=True,
                                   workers=2
                                   )
+    return model
 
-    model.load_weights('model.h5')
+
+def predict(submission_filename, model=None):
+
+    test_files = glob('../input/test/test/*.tif')
+    test_ids = list(map(extract_id, test_files))
+    test_labels = {i: 0 for i in test_ids}
+
+    test_gen = DataGenerator(test_ids, test_labels, TEST_DIR,
+                             dim=(CROP_SIZE,  CROP_SIZE), batch_size=2,
+                             n_channels=3, n_classes=1, shuffle=False)
+
+    if model:
+        model.load_weights(MODEL_FILEPATH)
+    else:
+        model = get_model_classif_nasnet()
+        model.load_weights(MODEL_FILEPATH) 
 
     print('Creating Submission Predictions')
     submission = generate_prediction(model, test_gen, test_files)
@@ -178,5 +188,19 @@ def train_model(submission_filename):
 
 
 if __name__ == '__main__':
-    submission_name = sys.argv[1]
-    train_model(submission_name)
+
+    print('Press T for training')
+    print('Press TP for train and predict')
+    print('Press P to predict')
+
+    choice = input('Select option: ')
+
+    if choice == 'T':
+        _ = train_model()
+    elif choice == 'TP':
+        submission_filename = input('Submission filename: ')
+        model = train_model()
+        predict(submission_filename, model)
+    elif choice == 'P':
+        submission_filename = input('Submission filename: ')
+        predict(submission_filename)
