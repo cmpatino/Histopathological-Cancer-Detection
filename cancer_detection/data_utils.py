@@ -2,13 +2,6 @@ import cv2
 import numpy as np
 from keras.utils import Sequence
 
-DATA_PATH = '../input/'
-TRAIN_DIR = DATA_PATH + 'train/'
-TEST_DIR = DATA_PATH + 'test/'
-
-CROP_SIZE = 64
-ORIGINAL_SIZE = 96
-
 
 class DataGenerator(Sequence):
     'Generates data for Keras'
